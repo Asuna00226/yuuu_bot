@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { REST, Routes } = require('discord.js');
 
-const deployCommands = async () => {
+const deployCommands = async (client) => {
     try {
         const commands = [];
 
@@ -17,18 +17,46 @@ const deployCommands = async () => {
                 console.log(`WARNING: The command at ${file} is missing a required 'data' or 'execute' property.`);
             }
         }
-    
 
-    const rest = new REST().setToken(process.env.BOT_TOKEN);
+        const rest = new REST().setToken(process.env.BOT_TOKEN);
+        const guildId = process.env.GUILD_ID;
+        const route = guildId
+            ? Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId)
+            : Routes.applicationCommands(process.env.CLIENT_ID);
 
-    console.log(`正在更新所有指令到global...`);
+        const logLabel = guildId ? `指定伺服器 ${guildId}` : 'global';
+        console.log(`正在更新所有指令到${logLabel}...`);
 
-    const data = await rest.put(
-        Routes.applicationCommands(process.env.CLIENT_ID),
-        { body: commands },
-    );
+        const data = await rest.put(route, { body: commands });
 
-    console.log('已更新所有指令');
+        if (guildId) {
+            const renameCommand = Array.isArray(data) ? data.find((command) => command.name === 'rename') : null;
+            if (renameCommand && process.env.RENAME_ROLE_NAME) {
+                const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+                if (guild) {
+                    const role = guild.roles.cache.find((item) => item.name === process.env.RENAME_ROLE_NAME);
+                    if (role) {
+                        await rest.put(
+                            Routes.guildApplicationCommandPermissions(process.env.CLIENT_ID, guildId, renameCommand.id),
+                            {
+                                body: {
+                                    permissions: [
+                                        {
+                                            id: role.id,
+                                            type: ApplicationCommandPermissionType.Role,
+                                            permission: true,
+                                        },
+                                    ],
+                                },
+                            }
+                        );
+                        console.log(`已為身分組 ${role.name} 開啟 /rename 的使用權限`);
+                    }
+                }
+            }
+        }
+
+        console.log(`已更新所有指令到${logLabel}`);
     } catch (error) {
         console.error('Error deploying commands:', error)
     }
@@ -42,7 +70,8 @@ const {
     ActivityType,
     PresenceUpdateStatus,
     MessageFlags,
-    Events
+    Events,
+    ApplicationCommandPermissionType
 } = require('discord.js');
 
 const client = new Client({
@@ -84,8 +113,8 @@ client.once(Events.ClientReady, async () => {
     console.log(`${client.user.tag}已上線，準備就緒！`);
 
     //Deploy Commandsㄋ
-    await deployCommands();
-    console.log(`指令已同步到global`);
+    await deployCommands(client);
+    console.log(`指令已同步`);
 
     const statusType = process.env.BOT_STATUS || 'online';
     const activityType = process.env.ACTIVITY_TYPE || 'PLAYING';
