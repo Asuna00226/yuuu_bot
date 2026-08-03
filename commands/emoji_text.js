@@ -61,7 +61,7 @@ module.exports = {
     const deleteId = emojisData.delete;
     const existingDelete = targetMessage.reactions.cache.find(r => r.emoji.id === deleteId && r.me);
     if (existingDelete) {
-      return interaction.editReply({ content: '不可以一次兩個~ 掉壞掉的。' });
+      return interaction.editReply({ content: '不可以一次兩個~ 掉壞掉的~ ' });
     }
 
     const markups = [];
