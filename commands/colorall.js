@@ -105,6 +105,7 @@ module.exports = {
     }
 
     const results = [];
+    const delayMs = 400;
 
     await interaction.editReply({ content: `開始處理 ${members.length} 位成員，請稍候...` });
 
@@ -141,6 +142,9 @@ module.exports = {
         results.push(`⚠️ ${member.user.tag} -> ${error.message}`);
       }
 
+      if (index < members.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
     }
 
     const summary = `處理完成。\n${results.join('\n')}`;
