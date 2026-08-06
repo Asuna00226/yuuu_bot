@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { getEmojiMarkup } = require('../utils/getEmojiMarkup');
 
 module.exports = {
@@ -15,7 +15,7 @@ module.exports = {
         const letter = typeof letterInput === 'string' ? letterInput.trim().toLowerCase() : '';
 
         if (!/^[a-z]$/.test(letter)) {
-            return interaction.reply({ content: '請提供有效的字母 (A-Z)。', flags: 64 });
+            return interaction.reply({ content: '請提供有效的字母 (A-Z)。', flags: MessageFlags.Ephemeral });
         }
 
         // map single letter to emoji key in emojis.json (e.g. 'a' -> 'a1')
@@ -23,7 +23,7 @@ module.exports = {
         const markup = getEmojiMarkup(emojiKey);
 
         if (!markup) {
-            return interaction.reply({ content: `找不到名為 ${emojiKey} 的自訂 emoji（emojis.json）。請確認已上傳並更新 emojis.json。`, flags: 64 });
+            return interaction.reply({ content: `找不到名為 ${emojiKey} 的自訂 emoji（emojis.json）。請確認已上傳並更新 emojis.json。`, flags: MessageFlags.Ephemeral });
         }
 
         await interaction.reply(markup);

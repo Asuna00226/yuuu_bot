@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { getEmojiMarkup } = require('../utils/getEmojiMarkup');
 
 module.exports = {
@@ -17,7 +17,7 @@ module.exports = {
         .setMaxValue(50)),
 
   async execute(interaction) {
-    await interaction.deferReply({ flags: 64 });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const text = interaction.options.getString('text') || '';
     if (!/^[a-zA-Z]+$/.test(text)) {
@@ -44,7 +44,14 @@ module.exports = {
     const index = interaction.options.getInteger('index') || 1;
     let targetMessage = null;
 
-    const fetched = await interaction.channel.messages.fetch({ limit: index });
+    let fetched;
+    try {
+      fetched = await interaction.channel.messages.fetch({ limit: index });
+    } catch (error) {
+      console.error('取得目標訊息失敗:', error);
+      return interaction.editReply({ content: '無法取得此頻道的訊息，請確認機器人有讀取訊息歷史的權限。' });
+    }
+
     if (fetched.size < index) {
       return interaction.editReply({ content: `在此頻道中沒有足夠的訊息可供目標（要求第 ${index} 則，實際只有 ${fetched.size} 則）。` });
     }
@@ -55,13 +62,24 @@ module.exports = {
       return interaction.editReply({ content: '無法取得目標訊息 (channel 內沒有訊息)。' });
     }
 
+    if (targetMessage.author?.bot || targetMessage.webhookId) {
+      return interaction.editReply({ content: '為避免破壞機器人的功能按鈕，不能對 bot 或 webhook 訊息使用此指令。' });
+    }
+
+    if (targetMessage.components?.length > 0) {
+      return interaction.editReply({ content: '此訊息包含互動按鈕，為避免影響原有功能，不能使用此指令。' });
+    }
+
+    if (targetMessage.reactions.cache.size > 0) {
+      return interaction.editReply({ content: '此訊息已經有反應，為避免移除重要反應，不能使用此指令。' });
+    }
+
     // load delete emoji id early and disallow re-running on messages that already have
     // the delete reaction added by this bot
     const emojisData = require('../emojis.json');
     const deleteId = emojisData.delete;
-    const existingDelete = targetMessage.reactions.cache.find(r => r.emoji.id === deleteId && r.me);
-    if (existingDelete) {
-      return interaction.editReply({ content: '不可以一次兩個~ 掉壞掉的~ ' });
+    if (!deleteId) {
+      return interaction.editReply({ content: '找不到 delete 表情設定，請確認 emojis.json 已包含 delete。' });
     }
 
     const markups = [];
@@ -96,7 +114,7 @@ module.exports = {
     const filter = (reaction, user) => {
       if (user.bot) return false;
       // reaction.emoji.id for custom emoji
-      return reaction.emoji.id === deleteId;
+      return reaction.emoji?.id === deleteId;
     };
 
     const collector = targetMessage.createReactionCollector({ filter, time: 5 * 60 * 1000 });

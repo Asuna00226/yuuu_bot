@@ -58,7 +58,8 @@ const deployCommands = async (client) => {
 
         console.log(`已更新所有指令到${logLabel}`);
     } catch (error) {
-        console.error('Error deploying commands:', error)
+        console.error('Error deploying commands:', error);
+        throw error;
     }
 }
 
@@ -80,7 +81,8 @@ const client = new Client({
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildVoiceStates
     ],
     partials: [
         Partials.Channel,
@@ -92,6 +94,24 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+
+const APEX_WATCH_CHANNEL_ID = process.env.APEX_WATCH_CHANNEL_ID || '1534193088489062543';
+const APEX_VOICE_STATUS = '/apex_draw 開啟分隊系統';
+
+client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+    const enteredWatchChannel = newState.channelId === APEX_WATCH_CHANNEL_ID
+        && oldState.channelId !== APEX_WATCH_CHANNEL_ID;
+
+    if (!enteredWatchChannel || newState.member?.user.bot) return;
+
+    client.rest.put(`/channels/${APEX_WATCH_CHANNEL_ID}/voice-status`, {
+        body: { status: APEX_VOICE_STATUS },
+    }).then(() => {
+        console.log(`已更新語音頻道狀態: ${APEX_VOICE_STATUS}`);
+    }).catch((error) => {
+        console.error('更新 Apex 語音頻道狀態失敗:', error);
+    });
+});
 
 
 
@@ -113,7 +133,14 @@ client.once(Events.ClientReady, async () => {
     console.log(`${client.user.tag}已上線，準備就緒！`);
 
     //Deploy Commandsㄋ
-    await deployCommands(client);
+    try {
+        await deployCommands(client);
+    } catch (error) {
+        console.error('指令同步失敗，停止 bot。', error);
+        await client.destroy();
+        process.exitCode = 1;
+        return;
+    }
     console.log(`指令已同步`);
 
     const statusType = process.env.BOT_STATUS || 'online';
@@ -170,4 +197,15 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 
-client.login(process.env.BOT_TOKEN);
+const requiredEnvironmentVariables = ['BOT_TOKEN', 'CLIENT_ID'];
+const missingEnvironmentVariables = requiredEnvironmentVariables.filter((name) => !process.env[name]);
+
+if (missingEnvironmentVariables.length > 0) {
+    console.error(`缺少必要環境變數: ${missingEnvironmentVariables.join(', ')}`);
+    process.exitCode = 1;
+} else {
+    client.login(process.env.BOT_TOKEN).catch((error) => {
+        console.error('Bot 登入失敗:', error);
+        process.exitCode = 1;
+    });
+}

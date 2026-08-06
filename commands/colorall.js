@@ -87,7 +87,7 @@ module.exports = {
     }
 
     if (botMember.roles.highest.position <= colorBottomRole.position) {
-      return interaction.editReply({ content: '我的最高角色位置不足，無法把新角色放在 color_buttom 上方。' });
+      return interaction.editReply({ content: '我的最高角色位置不足，無法把新角色放在 color_bottom 上方。' });
     }
 
     let members = [];
@@ -105,14 +105,14 @@ module.exports = {
     }
 
     const results = [];
-    const delayMs = 800;
 
     await interaction.editReply({ content: `開始處理 ${members.length} 位成員，請稍候...` });
 
     for (let index = 0; index < members.length; index += 1) {
       const member = members[index];
-      const progressText = `進度 ${index + 1}/${members.length}: 正在處理 ${member.user.tag}...`;
-      await interaction.editReply({ content: progressText });
+      if (index === 0 || index % 5 === 0 || index === members.length - 1) {
+        await interaction.editReply({ content: `進度 ${index + 1}/${members.length}: 正在處理 ${member.user.tag}...` });
+      }
 
       try {
         const avatarUrl = member.user.displayAvatarURL({ extension: 'png', size: 256 });
@@ -141,9 +141,6 @@ module.exports = {
         results.push(`⚠️ ${member.user.tag} -> ${error.message}`);
       }
 
-      if (index < members.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      }
     }
 
     const summary = `處理完成。\n${results.join('\n')}`;
