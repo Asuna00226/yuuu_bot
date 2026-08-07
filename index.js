@@ -2,6 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { REST, Routes } = require('discord.js');
+const { colorRoleNames, getColorFromButtonId } = require('./utils/colorSystem');
 
 const deployCommands = async (client) => {
     try {
@@ -175,6 +176,51 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.on(Events.InteractionCreate, async interaction => {
+    if (interaction.isButton()) {
+        const selectedHexCode = getColorFromButtonId(interaction.customId);
+        if (!selectedHexCode) return;
+
+        if (!interaction.inGuild() || !interaction.guild) {
+            return interaction.reply({ content: '這個按鈕只能在伺服器內使用。', flags: MessageFlags.Ephemeral });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            const guild = interaction.guild;
+            await guild.roles.fetch();
+            const selectedRole = guild.roles.cache.find((role) => role.name === selectedHexCode);
+            if (!selectedRole) {
+                return interaction.editReply({ content: '找不到對應的顏色身分組，請通知管理員重新建立角色。' });
+            }
+            if (!selectedRole.editable) {
+                return interaction.editReply({ content: '我無法管理這個顏色身分組，請確認機器人的角色位置。' });
+            }
+
+            const member = await guild.members.fetch(interaction.user.id);
+            const currentColorRoles = member.roles.cache.filter((role) => colorRoleNames.has(role.name));
+            const unmanageableRole = currentColorRoles.find((role) => role.id !== selectedRole.id && !role.editable);
+            if (unmanageableRole) {
+                return interaction.editReply({ content: '我無法移除你現有的顏色身分組，請通知管理員確認機器人的角色位置。' });
+            }
+
+            const rolesToRemove = currentColorRoles
+                .filter((role) => role.id !== selectedRole.id)
+                .map((role) => role.id);
+            if (rolesToRemove.length > 0) {
+                await member.roles.remove(rolesToRemove, 'Color system selection');
+            }
+            if (!member.roles.cache.has(selectedRole.id)) {
+                await member.roles.add(selectedRole, 'Color system selection');
+            }
+
+            return interaction.editReply({ content: `你的名字顏色已更換為 <@&${selectedRole.id}>。` });
+        } catch (error) {
+            console.error('更換名字顏色失敗:', error);
+            return interaction.editReply({ content: '更換名字顏色時發生錯誤。' });
+        }
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const command = client.commands.get(interaction.commandName);
