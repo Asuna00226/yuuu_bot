@@ -3,13 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const { REST, Routes } = require('discord.js');
 const { colorRoleNames, getColorFromButtonId } = require('./utils/colorSystem');
-const availableCommands = require('./utils/availableCommands');
 
 const deployCommands = async (client) => {
     try {
         const commands = [];
 
-        const commandFiles = availableCommands.map((name) => `${name}.js`);
+        const commandFiles = fs.readdirSync(path.join(__dirname, 'commands'))
+            .filter((file) => file.endsWith('.js'));
 
         for (const file of commandFiles) {
             const command = require(`./commands/${file}`);
@@ -118,7 +118,8 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
 
 
 const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = availableCommands.map((name) => `${name}.js`);
+const commandFiles = fs.readdirSync(commandsPath)
+    .filter((file) => file.endsWith('.js'));
 
 for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
