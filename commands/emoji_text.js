@@ -4,7 +4,7 @@ const { getEmojiMarkup } = require('../utils/getEmojiMarkup');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('emoji_text')
-    .setDescription('Add a sequence of custom emojis as reactions to a target message')
+    .setDescription('將自訂表情依序加入指定訊息')
     .addStringOption(option =>
       option.setName('text')
         .setDescription('Text to convert to emojis (letters only)')
